@@ -12,6 +12,9 @@
 namespace create_autonomy
 {
 
+using CallbackReturn =
+ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+
 CreateDriver::CreateDriver(const std::string & name)
 : LifecycleNode(name),
   model_(create::RobotModel::CREATE_2),
@@ -103,27 +106,27 @@ CallbackReturn CreateDriver::on_configure(const rclcpp_lifecycle::State &)
 
   // Setup subscribers
   cmd_vel_sub_ = create_subscription<geometry_msgs::msg::Twist>(
-    "cmd_vel", std::bind(&CreateDriver::cmdVelCallback, this, std::placeholders::_1));
+    "cmd_vel", 10, std::bind(&CreateDriver::cmdVelCallback, this, std::placeholders::_1));
   debris_led_sub_ = create_subscription<std_msgs::msg::Bool>(
-    "debris_led", std::bind(&CreateDriver::debrisLEDCallback, this, std::placeholders::_1));
+    "debris_led", 10, std::bind(&CreateDriver::debrisLEDCallback, this, std::placeholders::_1));
   spot_led_sub_ = create_subscription<std_msgs::msg::Bool>(
-    "spot_led", std::bind(&CreateDriver::spotLEDCallback, this, std::placeholders::_1));
+    "spot_led", 10, std::bind(&CreateDriver::spotLEDCallback, this, std::placeholders::_1));
   dock_led_sub_ = create_subscription<std_msgs::msg::Bool>(
-    "dock_led", std::bind(&CreateDriver::dockLEDCallback, this, std::placeholders::_1));
+    "dock_led", 10, std::bind(&CreateDriver::dockLEDCallback, this, std::placeholders::_1));
   check_led_sub_ = create_subscription<std_msgs::msg::Bool>(
-    "check_led", std::bind(&CreateDriver::checkLEDCallback, this, std::placeholders::_1));
+    "check_led", 10, std::bind(&CreateDriver::checkLEDCallback, this, std::placeholders::_1));
   power_led_sub_ = create_subscription<std_msgs::msg::UInt8MultiArray>(
-    "power_led", std::bind(&CreateDriver::powerLEDCallback, this, std::placeholders::_1));
+    "power_led", 10, std::bind(&CreateDriver::powerLEDCallback, this, std::placeholders::_1));
   set_ascii_sub_ = create_subscription<std_msgs::msg::UInt8MultiArray>(
-    "set_ascii", std::bind(&CreateDriver::setASCIICallback, this, std::placeholders::_1));
+    "set_ascii", 10, std::bind(&CreateDriver::setASCIICallback, this, std::placeholders::_1));
   dock_sub_ = create_subscription<std_msgs::msg::Empty>(
-    "dock", std::bind(&CreateDriver::dockCallback, this, std::placeholders::_1));
+    "dock", 10, std::bind(&CreateDriver::dockCallback, this, std::placeholders::_1));
   undock_sub_ = create_subscription<std_msgs::msg::Empty>(
-    "undock", std::bind(&CreateDriver::undockCallback, this, std::placeholders::_1));
+    "undock", 10, std::bind(&CreateDriver::undockCallback, this, std::placeholders::_1));
   define_song_sub_ = create_subscription<ca_msgs::msg::DefineSong>(
-    "define_song", std::bind(&CreateDriver::defineSongCallback, this, std::placeholders::_1));
+    "define_song", 10, std::bind(&CreateDriver::defineSongCallback, this, std::placeholders::_1));
   play_song_sub_ = create_subscription<ca_msgs::msg::PlaySong>(
-    "play_song", std::bind(&CreateDriver::playSongCallback, this, std::placeholders::_1));
+    "play_song", 10, std::bind(&CreateDriver::playSongCallback, this, std::placeholders::_1));
 
   // Setup publishers
   odom_pub_ = create_publisher<nav_msgs::msg::Odometry>("odom", 30);
@@ -267,33 +270,33 @@ CallbackReturn CreateDriver::on_cleanup(const rclcpp_lifecycle::State &)
   return CallbackReturn::SUCCESS;
 }
 
-void CreateDriver::cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
+void CreateDriver::cmdVelCallback(const geometry_msgs::msg::Twist::UniquePtr msg)
 {
   robot_->drive(msg->linear.x, msg->angular.z);
   last_cmd_vel_time_ = ros_clock_.now();
 }
 
-void CreateDriver::debrisLEDCallback(const std_msgs::msg::Bool::SharedPtr msg)
+void CreateDriver::debrisLEDCallback(const std_msgs::msg::Bool::UniquePtr msg)
 {
   robot_->enableDebrisLED(msg->data);
 }
 
-void CreateDriver::spotLEDCallback(const std_msgs::msg::Bool::SharedPtr msg)
+void CreateDriver::spotLEDCallback(const std_msgs::msg::Bool::UniquePtr msg)
 {
   robot_->enableSpotLED(msg->data);
 }
 
-void CreateDriver::dockLEDCallback(const std_msgs::msg::Bool::SharedPtr msg)
+void CreateDriver::dockLEDCallback(const std_msgs::msg::Bool::UniquePtr msg)
 {
   robot_->enableDockLED(msg->data);
 }
 
-void CreateDriver::checkLEDCallback(const std_msgs::msg::Bool::SharedPtr msg)
+void CreateDriver::checkLEDCallback(const std_msgs::msg::Bool::UniquePtr msg)
 {
   robot_->enableCheckRobotLED(msg->data);
 }
 
-void CreateDriver::powerLEDCallback(const std_msgs::msg::UInt8MultiArray::SharedPtr msg)
+void CreateDriver::powerLEDCallback(const std_msgs::msg::UInt8MultiArray::UniquePtr msg)
 {
   if (msg->data.empty()) {
     RCLCPP_ERROR(get_logger(), "[CREATE] No values provided to set power LED");
@@ -306,7 +309,7 @@ void CreateDriver::powerLEDCallback(const std_msgs::msg::UInt8MultiArray::Shared
   }
 }
 
-void CreateDriver::setASCIICallback(const std_msgs::msg::UInt8MultiArray::SharedPtr msg)
+void CreateDriver::setASCIICallback(const std_msgs::msg::UInt8MultiArray::UniquePtr msg)
 {
   bool result = false;
   if (msg->data.empty()) {
@@ -326,7 +329,7 @@ void CreateDriver::setASCIICallback(const std_msgs::msg::UInt8MultiArray::Shared
   }
 }
 
-void CreateDriver::dockCallback(const std_msgs::msg::Empty::SharedPtr msg)
+void CreateDriver::dockCallback(const std_msgs::msg::Empty::UniquePtr msg)
 {
   robot_->setMode(create::MODE_PASSIVE);
 
@@ -338,13 +341,13 @@ void CreateDriver::dockCallback(const std_msgs::msg::Empty::SharedPtr msg)
   robot_->dock();
 }
 
-void CreateDriver::undockCallback(const std_msgs::msg::Empty::SharedPtr msg)
+void CreateDriver::undockCallback(const std_msgs::msg::Empty::UniquePtr msg)
 {
   // Switch robot back to FULL mode
   robot_->setMode(create::MODE_FULL);
 }
 
-void CreateDriver::defineSongCallback(const ca_msgs::msg::DefineSong::SharedPtr msg)
+void CreateDriver::defineSongCallback(const ca_msgs::msg::DefineSong::UniquePtr msg)
 {
   if (!robot_->defineSong(msg->song, msg->length, &(msg->notes.front()),
     &(msg->durations.front())))
@@ -354,7 +357,7 @@ void CreateDriver::defineSongCallback(const ca_msgs::msg::DefineSong::SharedPtr 
   }
 }
 
-void CreateDriver::playSongCallback(const ca_msgs::msg::PlaySong::SharedPtr msg)
+void CreateDriver::playSongCallback(const ca_msgs::msg::PlaySong::UniquePtr msg)
 {
   if (!robot_->playSong(msg->song)) {
     RCLCPP_ERROR(get_logger(), "[CREATE] Failed to play song %d", msg->song);
