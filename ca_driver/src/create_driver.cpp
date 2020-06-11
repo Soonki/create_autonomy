@@ -28,28 +28,21 @@ CreateDriver::CreateDriver(const std::string & name)
 {
   std::string robot_model_name = "CREATE_2";
 
-  rclcpp::Parameter parameter;
-  if (get_parameter("dev", parameter)) {
-    dev_ = parameter.get_value<std::string>();
-  }
-  if (get_parameter("robot_model", parameter)) {
-    robot_model_name = parameter.get_value<std::string>();
-  }
-  if (get_parameter("base_frame", parameter)) {
-    base_frame_ = parameter.get_value<std::string>();
-  }
-  if (get_parameter("odom_frame", parameter)) {
-    odom_frame_ = parameter.get_value<std::string>();
-  }
-  if (get_parameter("latch_cmd_duration", parameter)) {
-    latch_duration_ = parameter.get_value<double>();
-  }
-  if (get_parameter("loop_hz", parameter)) {
-    loop_hz_ = parameter.get_value<double>();
-  }
-  if (get_parameter("publish_tf", parameter)) {
-    publish_tf_ = parameter.get_value<bool>();
-  }
+  declare_parameter<std::string>("dev", dev_);
+  declare_parameter<std::string>("robot_model", robot_model_name);
+  declare_parameter<std::string>("base_frame", base_frame_);
+  declare_parameter<std::string>("odom_frame", odom_frame_);
+  declare_parameter<double>("latch_cmd_duration", latch_duration_);
+  declare_parameter<double>("loop_hz", loop_hz_);
+  declare_parameter<bool>("publish_tf", publish_tf_);
+
+  get_parameter("dev", dev_);
+  get_parameter("robot_model", robot_model_name);
+  get_parameter("base_frame", base_frame_);
+  get_parameter("odom_frame", odom_frame_);
+  get_parameter("latch_cmd_duration", latch_duration_);
+  get_parameter("loop_hz", loop_hz_);
+  get_parameter("publish_tf", publish_tf_);
 
   if (robot_model_name == "ROOMBA_400") {
     model_ = create::RobotModel::ROOMBA_400;
@@ -68,9 +61,8 @@ CreateDriver::CreateDriver(const std::string & name)
     robot_model_name.c_str());
 
   baud_ = model_.getBaud();
-  if (get_parameter("baud", parameter)) {
-    baud_ = parameter.get_value<int>();
-  }
+  declare_parameter<int64_t>("baud", baud_);
+  get_parameter<int64_t>("baud", baud_);
 }
 
 CreateDriver::~CreateDriver()

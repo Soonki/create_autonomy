@@ -69,7 +69,7 @@ private:
   double latch_duration_;
   double loop_hz_;
   bool publish_tf_;
-  int baud_;
+  int64_t baud_;
 
   void cmdVelCallback(const geometry_msgs::msg::Twist::UniquePtr msg);
   void debrisLEDCallback(const std_msgs::msg::Bool::UniquePtr msg);
