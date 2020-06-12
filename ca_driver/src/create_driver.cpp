@@ -1,13 +1,13 @@
 // Copyright 2015 Jacob Perron (Autonomy Lab, Simon Fraser University)
 
+#include "create_driver/create_driver.hpp"
+
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/transform_datatypes.h>
 
 #include <chrono>
 #include <memory>
 #include <string>
-
-#include "create_driver/create_driver.hpp"
 
 namespace create_autonomy
 {
