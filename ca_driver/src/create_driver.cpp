@@ -11,9 +11,7 @@
 
 namespace create_autonomy
 {
-
-using CallbackReturn =
-  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
 CreateDriver::CreateDriver(const std::string & name)
 : LifecycleNode(name),
@@ -51,23 +49,20 @@ CreateDriver::CreateDriver(const std::string & name)
   } else if (robot_model_name == "CREATE_2") {
     model_ = create::RobotModel::CREATE_2;
   } else {
-    RCLCPP_FATAL(get_logger(), "[CREATE] Robot model \"%s\" is not known.",
-      robot_model_name.c_str());
+    RCLCPP_FATAL(
+      get_logger(), "[CREATE] Robot model \"%s\" is not known.", robot_model_name.c_str());
     rclcpp::shutdown();
     return;
   }
 
-  RCLCPP_INFO(get_logger(), "[CREATE] \"%s\" selected",
-    robot_model_name.c_str());
+  RCLCPP_INFO(get_logger(), "[CREATE] \"%s\" selected", robot_model_name.c_str());
 
   baud_ = model_.getBaud();
   declare_parameter<int64_t>("baud", baud_);
   get_parameter<int64_t>("baud", baud_);
 }
 
-CreateDriver::~CreateDriver()
-{
-}
+CreateDriver::~CreateDriver() {}
 
 CallbackReturn CreateDriver::on_configure(const rclcpp_lifecycle::State &)
 {
@@ -152,8 +147,7 @@ CallbackReturn CreateDriver::on_configure(const rclcpp_lifecycle::State &)
 CallbackReturn CreateDriver::on_activate(const rclcpp_lifecycle::State &)
 {
   if (!robot_->connect(dev_, baud_)) {
-    RCLCPP_FATAL(get_logger(),
-      "[CREATE] Failed to establish serial connection with Create.");
+    RCLCPP_FATAL(get_logger(), "[CREATE] Failed to establish serial connection with Create.");
     rclcpp::shutdown();
   }
 
@@ -163,7 +157,8 @@ CallbackReturn CreateDriver::on_activate(const rclcpp_lifecycle::State &)
   robot_->setMode(create::MODE_FULL);
 
   // Show robot's battery level
-  RCLCPP_INFO(get_logger(), "[CREATE] Battery level %.2f %%",
+  RCLCPP_INFO(
+    get_logger(), "[CREATE] Battery level %.2f %%",
     (robot_->getBatteryCharge() / robot_->getBatteryCapacity()) * 100.0);
 
   odom_pub_->on_activate();
@@ -341,11 +336,10 @@ void CreateDriver::undockCallback(const std_msgs::msg::Empty::UniquePtr msg)
 
 void CreateDriver::defineSongCallback(const ca_msgs::msg::DefineSong::UniquePtr msg)
 {
-  if (!robot_->defineSong(msg->song, msg->length, &(msg->notes.front()),
-    &(msg->durations.front())))
-  {
-    RCLCPP_ERROR(get_logger(), "[CREATE] Failed to define song %d of length %d",
-      msg->song, msg->length);
+  if (!robot_->defineSong(
+        msg->song, msg->length, &(msg->notes.front()), &(msg->durations.front()))) {
+    RCLCPP_ERROR(
+      get_logger(), "[CREATE] Failed to define song %d of length %d", msg->song, msg->length);
   }
 }
 
