@@ -136,6 +136,7 @@ CallbackReturn CreateDriver::on_configure(const rclcpp_lifecycle::State &)
   wheeldrop_pub_ = create_publisher<std_msgs::msg::Empty>("wheeldrop", 10);
   wheel_joint_pub_ = create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
 
+  tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(shared_from_this());
   timer_ = create_wall_timer(100ms, std::bind(&CreateDriver::update, this));
   timer_->cancel();
 
