@@ -529,7 +529,7 @@ void CreateDriver::publishMode()
       mode_msg_.mode = mode_msg_.MODE_FULL;
       break;
     default:
-      RCLCPP_ERROR(get_logger(), "[CREATE] Unknown mode detected");
+      mode_msg_.mode = mode_msg_.MODE_UNKNOWN;
       break;
   }
   mode_pub_->publish(mode_msg_);
