@@ -17,6 +17,7 @@ CreateDriver::CreateDriver(const std::string & name)
 : LifecycleNode(name),
   model_(create::RobotModel::CREATE_2),
   ros_clock_(RCL_ROS_TIME),
+  last_cmd_vel_time_(ros_clock_.now()),
   dev_("/dev/ttyUSB0"),
   base_frame_("base_footprint"),
   odom_frame_("odom"),
