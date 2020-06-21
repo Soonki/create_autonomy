@@ -1,5 +1,7 @@
 // Copyright 2015 Jacob Perron (Autonomy Lab, Simon Fraser University)
 
+#include "create_driver/create_driver.hpp"
+
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/transform_datatypes.h>
 
@@ -7,15 +9,15 @@
 #include <memory>
 #include <string>
 
-#include "create_driver/create_driver.hpp"
-
 namespace create_autonomy
 {
+using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
 CreateDriver::CreateDriver(const std::string & name)
 : LifecycleNode(name),
   model_(create::RobotModel::CREATE_2),
   ros_clock_(RCL_ROS_TIME),
+  last_cmd_vel_time_(ros_clock_.now()),
   dev_("/dev/ttyUSB0"),
   base_frame_("base_footprint"),
   odom_frame_("odom"),
@@ -25,28 +27,21 @@ CreateDriver::CreateDriver(const std::string & name)
 {
   std::string robot_model_name = "CREATE_2";
 
-  rclcpp::Parameter parameter;
-  if (get_parameter("dev", parameter)) {
-    dev_ = parameter.get_value<std::string>();
-  }
-  if (get_parameter("robot_model", parameter)) {
-    robot_model_name = parameter.get_value<std::string>();
-  }
-  if (get_parameter("base_frame", parameter)) {
-    base_frame_ = parameter.get_value<std::string>();
-  }
-  if (get_parameter("odom_frame", parameter)) {
-    odom_frame_ = parameter.get_value<std::string>();
-  }
-  if (get_parameter("latch_cmd_duration", parameter)) {
-    latch_duration_ = parameter.get_value<double>();
-  }
-  if (get_parameter("loop_hz", parameter)) {
-    loop_hz_ = parameter.get_value<double>();
-  }
-  if (get_parameter("publish_tf", parameter)) {
-    publish_tf_ = parameter.get_value<bool>();
-  }
+  declare_parameter<std::string>("dev", dev_);
+  declare_parameter<std::string>("robot_model", robot_model_name);
+  declare_parameter<std::string>("base_frame", base_frame_);
+  declare_parameter<std::string>("odom_frame", odom_frame_);
+  declare_parameter<double>("latch_cmd_duration", latch_duration_);
+  declare_parameter<double>("loop_hz", loop_hz_);
+  declare_parameter<bool>("publish_tf", publish_tf_);
+
+  get_parameter("dev", dev_);
+  get_parameter("robot_model", robot_model_name);
+  get_parameter("base_frame", base_frame_);
+  get_parameter("odom_frame", odom_frame_);
+  get_parameter("latch_cmd_duration", latch_duration_);
+  get_parameter("loop_hz", loop_hz_);
+  get_parameter("publish_tf", publish_tf_);
 
   if (robot_model_name == "ROOMBA_400") {
     model_ = create::RobotModel::ROOMBA_400;
@@ -55,24 +50,20 @@ CreateDriver::CreateDriver(const std::string & name)
   } else if (robot_model_name == "CREATE_2") {
     model_ = create::RobotModel::CREATE_2;
   } else {
-    RCLCPP_FATAL(get_logger(), "[CREATE] Robot model \"%s\" is not known.",
-      robot_model_name.c_str());
+    RCLCPP_FATAL(
+      get_logger(), "[CREATE] Robot model \"%s\" is not known.", robot_model_name.c_str());
     rclcpp::shutdown();
     return;
   }
 
-  RCLCPP_INFO(get_logger(), "[CREATE] \"%s\" selected",
-    robot_model_name.c_str());
+  RCLCPP_INFO(get_logger(), "[CREATE] \"%s\" selected", robot_model_name.c_str());
 
   baud_ = model_.getBaud();
-  if (get_parameter("baud", parameter)) {
-    baud_ = parameter.get_value<int>();
-  }
+  declare_parameter<int64_t>("baud", baud_);
+  get_parameter<int64_t>("baud", baud_);
 }
 
-CreateDriver::~CreateDriver()
-{
-}
+CreateDriver::~CreateDriver() {}
 
 CallbackReturn CreateDriver::on_configure(const rclcpp_lifecycle::State &)
 {
@@ -103,49 +94,50 @@ CallbackReturn CreateDriver::on_configure(const rclcpp_lifecycle::State &)
 
   // Setup subscribers
   cmd_vel_sub_ = create_subscription<geometry_msgs::msg::Twist>(
-    "cmd_vel", std::bind(&CreateDriver::cmdVelCallback, this, std::placeholders::_1));
+    "cmd_vel", 10, std::bind(&CreateDriver::cmdVelCallback, this, std::placeholders::_1));
   debris_led_sub_ = create_subscription<std_msgs::msg::Bool>(
-    "debris_led", std::bind(&CreateDriver::debrisLEDCallback, this, std::placeholders::_1));
+    "debris_led", 10, std::bind(&CreateDriver::debrisLEDCallback, this, std::placeholders::_1));
   spot_led_sub_ = create_subscription<std_msgs::msg::Bool>(
-    "spot_led", std::bind(&CreateDriver::spotLEDCallback, this, std::placeholders::_1));
+    "spot_led", 10, std::bind(&CreateDriver::spotLEDCallback, this, std::placeholders::_1));
   dock_led_sub_ = create_subscription<std_msgs::msg::Bool>(
-    "dock_led", std::bind(&CreateDriver::dockLEDCallback, this, std::placeholders::_1));
+    "dock_led", 10, std::bind(&CreateDriver::dockLEDCallback, this, std::placeholders::_1));
   check_led_sub_ = create_subscription<std_msgs::msg::Bool>(
-    "check_led", std::bind(&CreateDriver::checkLEDCallback, this, std::placeholders::_1));
+    "check_led", 10, std::bind(&CreateDriver::checkLEDCallback, this, std::placeholders::_1));
   power_led_sub_ = create_subscription<std_msgs::msg::UInt8MultiArray>(
-    "power_led", std::bind(&CreateDriver::powerLEDCallback, this, std::placeholders::_1));
+    "power_led", 10, std::bind(&CreateDriver::powerLEDCallback, this, std::placeholders::_1));
   set_ascii_sub_ = create_subscription<std_msgs::msg::UInt8MultiArray>(
-    "set_ascii", std::bind(&CreateDriver::setASCIICallback, this, std::placeholders::_1));
+    "set_ascii", 10, std::bind(&CreateDriver::setASCIICallback, this, std::placeholders::_1));
   dock_sub_ = create_subscription<std_msgs::msg::Empty>(
-    "dock", std::bind(&CreateDriver::dockCallback, this, std::placeholders::_1));
+    "dock", 10, std::bind(&CreateDriver::dockCallback, this, std::placeholders::_1));
   undock_sub_ = create_subscription<std_msgs::msg::Empty>(
-    "undock", std::bind(&CreateDriver::undockCallback, this, std::placeholders::_1));
+    "undock", 10, std::bind(&CreateDriver::undockCallback, this, std::placeholders::_1));
   define_song_sub_ = create_subscription<ca_msgs::msg::DefineSong>(
-    "define_song", std::bind(&CreateDriver::defineSongCallback, this, std::placeholders::_1));
+    "define_song", 10, std::bind(&CreateDriver::defineSongCallback, this, std::placeholders::_1));
   play_song_sub_ = create_subscription<ca_msgs::msg::PlaySong>(
-    "play_song", std::bind(&CreateDriver::playSongCallback, this, std::placeholders::_1));
+    "play_song", 10, std::bind(&CreateDriver::playSongCallback, this, std::placeholders::_1));
 
   // Setup publishers
-  odom_pub_ = create_publisher<nav_msgs::msg::Odometry>("odom", 30);
-  clean_btn_pub_ = create_publisher<std_msgs::msg::Empty>("clean_button", 30);
-  day_btn_pub_ = create_publisher<std_msgs::msg::Empty>("day_button", 30);
-  hour_btn_pub_ = create_publisher<std_msgs::msg::Empty>("hour_button", 30);
-  min_btn_pub_ = create_publisher<std_msgs::msg::Empty>("minute_button", 30);
-  dock_btn_pub_ = create_publisher<std_msgs::msg::Empty>("dock_button", 30);
-  spot_btn_pub_ = create_publisher<std_msgs::msg::Empty>("spot_button", 30);
-  voltage_pub_ = create_publisher<std_msgs::msg::Float32>("battery/voltage", 30);
-  current_pub_ = create_publisher<std_msgs::msg::Float32>("battery/current", 30);
-  charge_pub_ = create_publisher<std_msgs::msg::Float32>("battery/charge", 30);
-  charge_ratio_pub_ = create_publisher<std_msgs::msg::Float32>("battery/charge_ratio", 30);
-  capacity_pub_ = create_publisher<std_msgs::msg::Float32>("battery/capacity", 30);
-  temperature_pub_ = create_publisher<std_msgs::msg::Int16>("battery/temperature", 30);
-  charging_state_pub_ = create_publisher<ca_msgs::msg::ChargingState>("battery/charging_state", 30);
-  omni_char_pub_ = create_publisher<std_msgs::msg::UInt16>("ir_omni", 30);
-  mode_pub_ = create_publisher<ca_msgs::msg::Mode>("mode", 30);
-  bumper_pub_ = create_publisher<ca_msgs::msg::Bumper>("bumper", 30);
-  wheeldrop_pub_ = create_publisher<std_msgs::msg::Empty>("wheeldrop", 30);
+  odom_pub_ = create_publisher<nav_msgs::msg::Odometry>("odom", 10);
+  clean_btn_pub_ = create_publisher<std_msgs::msg::Empty>("clean_button", 10);
+  day_btn_pub_ = create_publisher<std_msgs::msg::Empty>("day_button", 10);
+  hour_btn_pub_ = create_publisher<std_msgs::msg::Empty>("hour_button", 10);
+  min_btn_pub_ = create_publisher<std_msgs::msg::Empty>("minute_button", 10);
+  dock_btn_pub_ = create_publisher<std_msgs::msg::Empty>("dock_button", 10);
+  spot_btn_pub_ = create_publisher<std_msgs::msg::Empty>("spot_button", 10);
+  voltage_pub_ = create_publisher<std_msgs::msg::Float32>("battery/voltage", 10);
+  current_pub_ = create_publisher<std_msgs::msg::Float32>("battery/current", 10);
+  charge_pub_ = create_publisher<std_msgs::msg::Float32>("battery/charge", 10);
+  charge_ratio_pub_ = create_publisher<std_msgs::msg::Float32>("battery/charge_ratio", 10);
+  capacity_pub_ = create_publisher<std_msgs::msg::Float32>("battery/capacity", 10);
+  temperature_pub_ = create_publisher<std_msgs::msg::Int16>("battery/temperature", 10);
+  charging_state_pub_ = create_publisher<ca_msgs::msg::ChargingState>("battery/charging_state", 10);
+  omni_char_pub_ = create_publisher<std_msgs::msg::UInt16>("ir_omni", 10);
+  mode_pub_ = create_publisher<ca_msgs::msg::Mode>("mode", 10);
+  bumper_pub_ = create_publisher<ca_msgs::msg::Bumper>("bumper", 10);
+  wheeldrop_pub_ = create_publisher<std_msgs::msg::Empty>("wheeldrop", 10);
   wheel_joint_pub_ = create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
 
+  tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(shared_from_this());
   timer_ = create_wall_timer(100ms, std::bind(&CreateDriver::update, this));
   timer_->cancel();  // タイマー実行のキャンセル
 
@@ -157,8 +149,7 @@ CallbackReturn CreateDriver::on_configure(const rclcpp_lifecycle::State &)
 CallbackReturn CreateDriver::on_activate(const rclcpp_lifecycle::State &)
 {
   if (!robot_->connect(dev_, baud_)) {
-    RCLCPP_FATAL(get_logger(),
-      "[CREATE] Failed to establish serial connection with Create.");
+    RCLCPP_FATAL(get_logger(), "[CREATE] Failed to establish serial connection with Create.");
     rclcpp::shutdown();
   }
 
@@ -168,7 +159,8 @@ CallbackReturn CreateDriver::on_activate(const rclcpp_lifecycle::State &)
   robot_->setMode(create::MODE_FULL);
 
   // Show robot's battery level
-  RCLCPP_INFO(get_logger(), "[CREATE] Battery level %.2f %%",
+  RCLCPP_INFO(
+    get_logger(), "[CREATE] Battery level %.2f %%",
     (robot_->getBatteryCharge() / robot_->getBatteryCapacity()) * 100.0);
 
   odom_pub_->on_activate();
@@ -267,33 +259,33 @@ CallbackReturn CreateDriver::on_cleanup(const rclcpp_lifecycle::State &)
   return CallbackReturn::SUCCESS;
 }
 
-void CreateDriver::cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
+void CreateDriver::cmdVelCallback(const geometry_msgs::msg::Twist::UniquePtr msg)
 {
   robot_->drive(msg->linear.x, msg->angular.z);
   last_cmd_vel_time_ = ros_clock_.now();
 }
 
-void CreateDriver::debrisLEDCallback(const std_msgs::msg::Bool::SharedPtr msg)
+void CreateDriver::debrisLEDCallback(const std_msgs::msg::Bool::UniquePtr msg)
 {
   robot_->enableDebrisLED(msg->data);
 }
 
-void CreateDriver::spotLEDCallback(const std_msgs::msg::Bool::SharedPtr msg)
+void CreateDriver::spotLEDCallback(const std_msgs::msg::Bool::UniquePtr msg)
 {
   robot_->enableSpotLED(msg->data);
 }
 
-void CreateDriver::dockLEDCallback(const std_msgs::msg::Bool::SharedPtr msg)
+void CreateDriver::dockLEDCallback(const std_msgs::msg::Bool::UniquePtr msg)
 {
   robot_->enableDockLED(msg->data);
 }
 
-void CreateDriver::checkLEDCallback(const std_msgs::msg::Bool::SharedPtr msg)
+void CreateDriver::checkLEDCallback(const std_msgs::msg::Bool::UniquePtr msg)
 {
   robot_->enableCheckRobotLED(msg->data);
 }
 
-void CreateDriver::powerLEDCallback(const std_msgs::msg::UInt8MultiArray::SharedPtr msg)
+void CreateDriver::powerLEDCallback(const std_msgs::msg::UInt8MultiArray::UniquePtr msg)
 {
   if (msg->data.empty()) {
     RCLCPP_ERROR(get_logger(), "[CREATE] No values provided to set power LED");
@@ -306,7 +298,7 @@ void CreateDriver::powerLEDCallback(const std_msgs::msg::UInt8MultiArray::Shared
   }
 }
 
-void CreateDriver::setASCIICallback(const std_msgs::msg::UInt8MultiArray::SharedPtr msg)
+void CreateDriver::setASCIICallback(const std_msgs::msg::UInt8MultiArray::UniquePtr msg)
 {
   bool result = false;
   if (msg->data.empty()) {
@@ -326,7 +318,7 @@ void CreateDriver::setASCIICallback(const std_msgs::msg::UInt8MultiArray::Shared
   }
 }
 
-void CreateDriver::dockCallback(const std_msgs::msg::Empty::SharedPtr msg)
+void CreateDriver::dockCallback(const std_msgs::msg::Empty::UniquePtr msg)
 {
   robot_->setMode(create::MODE_PASSIVE);
 
@@ -338,23 +330,22 @@ void CreateDriver::dockCallback(const std_msgs::msg::Empty::SharedPtr msg)
   robot_->dock();
 }
 
-void CreateDriver::undockCallback(const std_msgs::msg::Empty::SharedPtr msg)
+void CreateDriver::undockCallback(const std_msgs::msg::Empty::UniquePtr msg)
 {
   // Switch robot back to FULL mode
   robot_->setMode(create::MODE_FULL);
 }
 
-void CreateDriver::defineSongCallback(const ca_msgs::msg::DefineSong::SharedPtr msg)
+void CreateDriver::defineSongCallback(const ca_msgs::msg::DefineSong::UniquePtr msg)
 {
-  if (!robot_->defineSong(msg->song, msg->length, &(msg->notes.front()),
-    &(msg->durations.front())))
-  {
-    RCLCPP_ERROR(get_logger(), "[CREATE] Failed to define song %d of length %d",
-      msg->song, msg->length);
+  if (!robot_->defineSong(
+        msg->song, msg->length, &(msg->notes.front()), &(msg->durations.front()))) {
+    RCLCPP_ERROR(
+      get_logger(), "[CREATE] Failed to define song %d of length %d", msg->song, msg->length);
   }
 }
 
-void CreateDriver::playSongCallback(const ca_msgs::msg::PlaySong::SharedPtr msg)
+void CreateDriver::playSongCallback(const ca_msgs::msg::PlaySong::UniquePtr msg)
 {
   if (!robot_->playSong(msg->song)) {
     RCLCPP_ERROR(get_logger(), "[CREATE] Failed to play song %d", msg->song);
@@ -538,7 +529,7 @@ void CreateDriver::publishMode()
       mode_msg_.mode = mode_msg_.MODE_FULL;
       break;
     default:
-      RCLCPP_ERROR(get_logger(), "[CREATE] Unknown mode detected");
+      mode_msg_.mode = mode_msg_.MODE_UNKNOWN;
       break;
   }
   mode_pub_->publish(mode_msg_);

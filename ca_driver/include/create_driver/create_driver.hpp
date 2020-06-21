@@ -3,13 +3,17 @@
 #ifndef CREATE_DRIVER__CREATE_DRIVER_HPP_
 #define CREATE_DRIVER__CREATE_DRIVER_HPP_
 
+#include <tf2_ros/transform_broadcaster.h>
+
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <geometry_msgs/msg/twist.hpp>
+#include <limits>
+#include <memory>
+#include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/time.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
-#include <geometry_msgs/msg/transform_stamped.hpp>
-#include <geometry_msgs/msg/twist.hpp>
-#include <nav_msgs/msg/odometry.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/empty.hpp>
@@ -17,30 +21,22 @@
 #include <std_msgs/msg/int16.hpp>
 #include <std_msgs/msg/u_int16.hpp>
 #include <std_msgs/msg/u_int8_multi_array.hpp>
-#include <tf2_ros/transform_broadcaster.h>
-
-#include <limits>
 #include <string>
-#include <memory>
 
-#include "create/create.h"
-#include "ca_msgs/msg/charging_state.hpp"
-#include "ca_msgs/msg/mode.hpp"
 #include "ca_msgs/msg/bumper.hpp"
+#include "ca_msgs/msg/charging_state.hpp"
 #include "ca_msgs/msg/define_song.hpp"
+#include "ca_msgs/msg/mode.hpp"
 #include "ca_msgs/msg/play_song.hpp"
+#include "create/create.h"
 
 namespace create_autonomy
 {
-
 static const double MAX_DBL = std::numeric_limits<double>::max();
 static const double COVARIANCE[36] = {
-  1e-5, 1e-5, 0.0, 0.0, 0.0, 1e-5,
-  1e-5, 1e-5, 0.0, 0.0, 0.0, 1e-5,
-  0.0, 0.0, MAX_DBL, 0.0, 0.0, 0.0,
-  0.0, 0.0, 0.0, MAX_DBL, 0.0, 0.0,
-  0.0, 0.0, 0.0, 0.0, MAX_DBL, 0.0,
-  1e-5, 1e-5, 0.0, 0.0, 0.0, 1e-5};
+  1e-5, 1e-5, 0.0,     0.0, 0.0,     1e-5, 1e-5, 1e-5, 0.0, 0.0,     0.0, 1e-5,
+  0.0,  0.0,  MAX_DBL, 0.0, 0.0,     0.0,  0.0,  0.0,  0.0, MAX_DBL, 0.0, 0.0,
+  0.0,  0.0,  0.0,     0.0, MAX_DBL, 0.0,  1e-5, 1e-5, 0.0, 0.0,     0.0, 1e-5};
 
 class CreateDriver : public rclcpp_lifecycle::LifecycleNode
 {
@@ -69,19 +65,19 @@ private:
   double latch_duration_;
   double loop_hz_;
   bool publish_tf_;
-  int baud_;
+  int64_t baud_;
 
-  void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
-  void debrisLEDCallback(const std_msgs::msg::Bool::SharedPtr msg);
-  void spotLEDCallback(const std_msgs::msg::Bool::SharedPtr msg);
-  void dockLEDCallback(const std_msgs::msg::Bool::SharedPtr msg);
-  void checkLEDCallback(const std_msgs::msg::Bool::SharedPtr msg);
-  void powerLEDCallback(const std_msgs::msg::UInt8MultiArray::SharedPtr msg);
-  void setASCIICallback(const std_msgs::msg::UInt8MultiArray::SharedPtr msg);
-  void dockCallback(const std_msgs::msg::Empty::SharedPtr msg);
-  void undockCallback(const std_msgs::msg::Empty::SharedPtr msg);
-  void defineSongCallback(const ca_msgs::msg::DefineSong::SharedPtr msg);
-  void playSongCallback(const ca_msgs::msg::PlaySong::SharedPtr msg);
+  void cmdVelCallback(const geometry_msgs::msg::Twist::UniquePtr msg);
+  void debrisLEDCallback(const std_msgs::msg::Bool::UniquePtr msg);
+  void spotLEDCallback(const std_msgs::msg::Bool::UniquePtr msg);
+  void dockLEDCallback(const std_msgs::msg::Bool::UniquePtr msg);
+  void checkLEDCallback(const std_msgs::msg::Bool::UniquePtr msg);
+  void powerLEDCallback(const std_msgs::msg::UInt8MultiArray::UniquePtr msg);
+  void setASCIICallback(const std_msgs::msg::UInt8MultiArray::UniquePtr msg);
+  void dockCallback(const std_msgs::msg::Empty::UniquePtr msg);
+  void undockCallback(const std_msgs::msg::Empty::UniquePtr msg);
+  void defineSongCallback(const ca_msgs::msg::DefineSong::UniquePtr msg);
+  void playSongCallback(const ca_msgs::msg::PlaySong::UniquePtr msg);
 
   void update();
   void publishOdom();
@@ -130,8 +126,7 @@ public:
   explicit CreateDriver(const std::string & name);
   ~CreateDriver();
 
-  using CallbackReturn =
-    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+  using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
   CallbackReturn on_configure(const rclcpp_lifecycle::State &) override;
   CallbackReturn on_activate(const rclcpp_lifecycle::State &) override;
